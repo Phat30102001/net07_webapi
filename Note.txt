@@ -1,0 +1,12 @@
+- Buổi 31
+    - tạo connectionString
+    - cài bọ 3 EF
+        dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+        dotnet add package Microsoft.EntityFrameworkCore.Tools
+        dotnet add package Microsoft.EntityFrameworkCore.Design
+        EF giúp gì ?
+        linq 
+        dịch code linQ -> t-SQL -> DB 
+    - tạo models SinhVien
+    - Tạo AppDBContext 
+    - DI trong Program

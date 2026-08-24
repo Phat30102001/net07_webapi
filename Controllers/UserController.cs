@@ -12,7 +12,7 @@ public class UserController : ControllerBase
     private static List<User> users = new List<User>
     {
         new User() { Name = "admin", Email = "admin@mail.com", Phone = "0388963345"},
-        new User() { Name = "user01", Email = "user01@mail.com", Phone = "0388963001"}
+        new User() { Name = "user01", Email = "user01@mail.com", Phone = "0388963001"},
     };
 
     // Lấy tất cả users 
