@@ -10,3 +10,10 @@
     - tạo models SinhVien
     - Tạo AppDBContext 
     - DI trong Program
+
+- buổi 32
+    - [FromBody] chỉ dùng cho HttpPut và HttpPost
+    - [FromRoute] : EX: api/SinhVien/{id}   => api/SinhVien/1
+                                            => api/SinhVien/2
+    - [FromQuey] : EX: api/SinhVien/search?keyword      => api/SinhVien/search?keyword=Nga&age=10&dichi=hcm
+                                                        => api/SinhVien/search?keyword=N
