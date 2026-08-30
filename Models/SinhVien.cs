@@ -13,3 +13,9 @@ public class SinhVien
     public DateTime NgaySinh { get; set;}
     public string Lop { get; set;}
 }
+public class SinhVienUpdate
+{
+     public string HoTen { get; set;}
+    public DateTime NgaySinh { get; set;}
+    public string Lop { get; set;}
+}

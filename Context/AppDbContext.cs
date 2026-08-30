@@ -1,6 +1,7 @@
 using dotnet07_webapi.Models;
 using Microsoft.EntityFrameworkCore;
-
+// EF ORM 
+// linQ => sql => db chayj => nhan lai du lieu
 namespace dotnet07_webapi.Context;
 
 public class AppDbContext : DbContext
