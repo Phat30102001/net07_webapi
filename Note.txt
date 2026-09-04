@@ -17,3 +17,9 @@
                                             => api/SinhVien/2
     - [FromQuey] : EX: api/SinhVien/search?keyword      => api/SinhVien/search?keyword=Nga&age=10&dichi=hcm
                                                         => api/SinhVien/search?keyword=N
+
+
+- buổi 33
+    - LopHoc 
+    - MonHoc
+    - DangKyHoc

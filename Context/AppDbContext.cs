@@ -12,4 +12,7 @@ public class AppDbContext : DbContext
     }
     // kết nối class trong model với table trong sql
     public DbSet<SinhVien> SinhVien { get; set; }
+    public DbSet<LopHoc> LopHoc { get; set; }
+    public DbSet<MonHoc> MonHoc { get; set; }
+    public DbSet<DangKyHoc> DangKyHoc { get; set; }
 }

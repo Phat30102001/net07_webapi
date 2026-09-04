@@ -37,7 +37,9 @@ public class SinhVienController : ControllerBase
     {
         // Sử dụng EF để lấy ds SinhVien
         // 
-        var sinhVien = await _dbcontext.SinhVien.FirstOrDefaultAsync(sv => sv.MaSV == id);
+        var sinhVien = await _dbcontext.SinhVien
+        .Include(sv => sv.LopHoc)
+        .FirstOrDefaultAsync(sv => sv.MaSV == id);
         return Ok(sinhVien);
     }
     // Update 
