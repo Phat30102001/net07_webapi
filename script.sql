@@ -445,6 +445,7 @@ Where lop<>'IT001'
 
 -- FUNCTION 
 -- dong goi code tsql thanh funtion va goi lai khi can
+-- bắt buộc có giá trị trả về 
 
 Create function fn_TraiThaiThanhToan(@ThanhToan BIT)
 returns NVARCHAR(50)
@@ -478,7 +479,7 @@ INNER  JOIN QuanLySinhVien.dbo.MonHoc mh
 ON mh.MaMonHoc = dkh.MaMonHoc 
       
 -- SP - chuong trinh dc code tren sql, thuc hien nhieu cau lenh 
-Create Procedure sp_ChuyenLopSinhVien 
+ALTER Procedure sp_ChuyenLopSinhVien 
 	@MaSV varchar(6), 
 	@MaLopMoi varchar(6)
 AS BEGIN
@@ -499,8 +500,26 @@ AS BEGIN
 	
 	-- update dong hien tai trong lichsulophoc
 	-- lop dang hoc thi sex co denngay = null
-	UPDATE LichSuLopHoc SET DenNgay = GETDATE()
-	WHERE MaSV= @MaSV and DenNgay IS NULL
+	-- bổ sung kiểm tra chua có data thì thêm 1 dòng để lưu lại lớp cũ
+	-- 
+	-- Kiểm tra lớp hiện tại có lưu lịch sử chưa
+	IF NOT EXISTS (SELECT 1 From LichSuLopHoc Where MaSV = @MaSV AND DenNgay IS NULL)
+	BEGIN
+		-- lưu lại lớp hiện tại của sinh vien vào lịch sử 
+		INSERT INTO LichSuLopHoc (MaSV, MaLop, TuNgay, DenNgay)
+		 	SELECT MaSV, Lop, NULL, GETDATE()  
+		 	from SinhVien 
+			where MaSV = @MaSV
+		
+	END
+	ELSE
+	BEGIN
+		UPDATE LichSuLopHoc SET DenNgay = GETDATE()
+		WHERE MaSV= @MaSV and DenNgay IS NULL
+	END
+	
+	
+	
 	
 	-- cap nhat sinhvien
 	UPDATE SinhVien Set Lop = @MaLopMoi 
@@ -517,8 +536,290 @@ exec sp_ChuyenLopSinhVien 'SV001' , 'IT011'
 -- update dogn của sinhvien
 -- insert dòng cho lop IT006
 
-exec sp_ChuyenLopSinhVien @MaSV='SV001' , @MaLopMoi='IT008'
+exec sp_ChuyenLopSinhVien @MaLopMoi='IT008', @MaSV='SV001' ,
 
 
 select * from lichsulophoc
+select * from sinhvien
+
+-- 2 dòng ụịch sử 
+-- dòng là lớp hiện : IT001 từ ngày A ->hôm nay
+-- dòng lớp mới IT002 từ ngày Hôm ngay ->  NULL 
+exec sp_ChuyenLopSinhVien @MaLopMoi='IT002', @MaSV='SV002'
+SELECT MaSV, Lop, NULL, GETDATE()  from SinhVien 
+			where MaSV = 'SV001' 
+exec sp_ChuyenLopSinhVien @MaLopMoi='IT001', @MaSV='SV003'
+
+
+-- update kieu du lieu cua 1 field trong table da tao 
+ALTER table LichSuLopHoc
+ALTER COLUMN TuNgay Date NULL
+delete LichSuLopHoc where id in (8,9)
+
+-- xoá dữ liệu 
+-- bảng sinh vien  
+-- TRIGGER 
+-- tự động khi có thao tác xoá sinh
+-- tạo bảng để lưu thông tin log
+create table LogSinhVien(
+	Id int Identity(1,1) Primary key,
+	MaSV varchar(6),
+	HoTen nvarchar(100),
+	ThoiGian DATETIME Default GETDATE(),
+	ThaoTac varchar(20)
+)
+
+-- trigger tracking  lich su thao tac len bang sinh vien
+Create Trigger trg_LogInsertSinhVien
+ON SinhVien
+AFTER INSERT
+AS
+BEGIN
+	INSERT INTO LogSinhVien(MaSV, HoTen, ThaoTac)
+	SELECT MaSV, HoTen, 'INSERT' from inserted
+END
+
+
+CREATE Trigger trg_LogSinhVien
+ON SinhVien
+AFTER INSERT, Update, Delete
+-- inserted, deleted(cu) -> inserted(moi), deleted
+AS
+BEGIN
+	-- INSERT
+	INSERT INTO LogSinhVien(MaSV, HoTen, ThaoTac)
+	SELECT i.MaSV, i.HoTen, 'INSERT' from inserted i 
+	left join deleted d on i.MaSV =  d.MaSV
+	where d.MaSV is NULL
+	-- update
+	INSERT INTO LogSinhVien(MaSV, HoTen, ThaoTac)
+	SELECT i.MaSV, i.HoTen, 'UPDATE' from inserted i 
+	inner join deleted d on i.MaSV = d.MaSV
+	-- deleted
+	INSERT INTO LogSinhVien(MaSV, HoTen, ThaoTac)
+	SELECT d.MaSV, d.HoTen, 'DELETE' from deleted d
+	left join inserted i on i.MaSV =  d.MaSV
+	where i.MaSV is NULL
+END
+
+-- VIEW			- luu lai cau select de tai su dung nhanh hon
+-- FUNCTION		- tinh toan,.. bat buoc co return
+-- SP   		- chuong trinh mini dat tren sql, chay dc nhieu cau lenh , co/ khong return
+-- TRIGGER 		- khong can goi - tu chayj theo thao tac duoc cau hinh
+
+
+
+
+select * from LogSinhVien
+select * from SinhVien
+
+-- theem sv
+INSERT INTO SinhVien (MaSV, HoTen, NgaySinh, Lop)
+VALUES ('SV006', N'Le Thi My', '2000-05-13','IT001');
+
+-- them nhieu sv
+INSERT INTO SinhVien (MaSV, HoTen, NgaySinh, Lop)
+VALUES ('SV007', N'Le Thi My', '2000-05-13','IT001'),
+ ('SV008', N'Le Van Minh', '2000-05-13','IT001'),
+ ('SV009', N'Tran Manh', '2000-05-13','IT001')
+
+ Update sinhvien set NgaySinh=N'2001-05-13' where masv='SV008'
+ 
+ delete sinhvien where masv='SV006'
+
+
+
+
+ 
+ 
+ 
+ 
+ -- khi thêm thì có dữ liệu trong insert mà delete tương ứng rỗng 
+ -- khi xoá thì có dữ liệu trong delete mà insert tương ứng rỗng 
+ 
+CREATE Trigger trg_LogSinhVien_V2
+ON SinhVien
+AFTER INSERT, Update, Delete
+-- inserted, deleted(cu) -> inserted(moi), deleted
+AS
+BEGIN
+	-- INSERT
+	INSERT INTO LogSinhVien(MaSV, HoTen, ThaoTac)
+	SELECT i.MaSV, i.HoTen, 'INSERT' from inserted i 
+--	left join deleted d on i.MaSV =  d.MaSV
+--	where d.MaSV is NULL
+	-- deleted
+	INSERT INTO LogSinhVien(MaSV, HoTen, ThaoTac)
+	SELECT d.MaSV, d.HoTen, 'DELETE' from deleted d
+--	left join inserted i on i.MaSV =  d.MaSV
+--	where i.MaSV is NULL
+END
+
+
+-- 10.000 sản phẩm trong đó chủ yếu là sp giá cao 
+-- sp giá = 20k (1%)
+-- select * from sanpham where gia = 20
+
+-- index - 
+-- 
+-- tạo bảng sanpham (id, ten , gia , soluong
+CREATE TABLE SanPham
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    TenSanPham NVARCHAR(100),
+    Gia DECIMAL(18,2),
+    SoLuong INT,
+    -- dc cua hang
+    -- mau sac
+    -- size 
+);
+-- index - 
+
+
+
+
+Declare @i int = 10001
+while @i <=100000
+begin 
+	insert into SanPham(TenSanPham, Gia, SoLuong)
+	values
+	(N'San Pham' + cast(@i as nvarchar(20)),10000 + (@i * 100),@i)
+	set @i = @i +1;
+end
+
+
+select * from sanpham where TenSanPham like N'%pham9%'
+
+SET STATISTICS IO ON;
+SET STATISTICS TIME ON;
+
+SELECT *
+FROM SanPham
+WHERE TenSanPham = N'San pham9000';
+
+-- Bai tap Salesdb
+create database SalesDB;
+
+use SalesDB;
+
+-- ================================
+-- Tao bang
+-- ================================
+-- generic type 
+-- LIST<T> 
+-- them , xoa , sua, 
+-- xoa -> tim kiem de co 
+-- Customers
+-- int identity(1,1)
+-- GUID
+-- SP26001
+-- SP27
+create table Customers(
+	Id int identity(1,1) PRIMARY key,
+	Name NVARCHAR(100) NOT NULL,
+    Email VARCHAR(100),
+    Phone VARCHAR(20),
+    Address NVARCHAR(200)
+)
+
+-- Bảng sản phẩm
+CREATE TABLE Products
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    ProductName NVARCHAR(150) NOT NULL,
+    Price DECIMAL(18,2) NOT NULL,
+    Stock INT NOT NULL DEFAULT 0
+);
+-- Bang Order
+CREATE TABLE Orders
+(
+    Id INT IDENTITY(1, 1) PRIMARY KEY,
+    CustomerId int,
+    OrderDate DATETIME DEFAULT GETDATE(),
+    TotalAmount DECIMAL(18, 2) DEFAULT 0,
+    CONSTRAINT FK_Orders_Customer FOREIGN KEY (CustomerId) REFERENCES  Customers(Id)
+);
+-- Bảng chi tiết đơn hàng
+CREATE TABLE OrderDetails
+(
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    OrderID INT NOT NULL,
+    ProductID INT NOT NULL,
+    Quantity INT NOT NULL,
+    Price DECIMAL(18,2) NOT NULL,
+
+    CONSTRAINT FK_OrderDetails_Orders
+        FOREIGN KEY (OrderID)
+        REFERENCES Orders(Id),
+
+    CONSTRAINT FK_OrderDetails_Products
+        FOREIGN KEY (ProductID)
+        REFERENCES Products(Id)
+);
+-- inssert
+INSERT INTO Customers (Name, Email, Phone, Address)
+VALUES
+('Nguyễn Văn A', 'nva@example.com', '0901123456', 'Hà Nội'),
+('Trần Thị B', 'ttb@example.com', '0912233445', 'Hồ Chí Minh'),
+('Lê Văn C', 'lvc@example.com', '0987654321', 'Đà Nẵng');
+-- product
+INSERT INTO Products (ProductName, Price, Stock)
+VALUES
+('Laptop Dell XPS 15', 35000000, 10),
+('iPhone 14 Pro Max', 29000000, 20),
+('Chuột Logitech MX Master 3', 2500000, 30),
+('Bàn phím cơ Keychron K2', 1800000, 25);
+-- Order
+INSERT INTO Orders (CustomerID, TotalAmount)
+VALUES
+(1, 63000000), -- Khách hàng Nguyễn Văn A
+(2, 29000000), -- Khách hàng Trần Thị B
+(3, 1800000); -- Khách hàng Lê Văn C
+
+-- orrder detail
+INSERT INTO OrderDetails (OrderID, ProductID, Quantity, Price)
+VALUES
+(1, 1, 1, 35000000), -- Nguyễn Văn A mua 1 Laptop Dell XPS 15
+(1, 2, 1, 29000000), -- Nguyễn Văn A mua 1 iPhone 14 Pro Max
+(2, 2, 1, 29000000), -- Trần Thị B mua 1 iPhone 14 Pro Max
+(3, 4, 1, 1800000); -- Lê Văn C mua 1 bàn phím Keychron K2
+
+-- 1. laasy taast ca kahch hang
+select * from SalesDB.dbo.Customers c 
+--2.Lấy sản phẩm có giá trên 5 triệu.
+select  * from SalesDB.dbo.Products p where price > 5000000
+--3.Hiển thị đơn hàng kèm tên khách hàng, ngày đặt, tổng tiền.
+Select o.Id, o.OrderDate, c.Name, o.TotalAmount from Orders o 
+inner join Customers c 
+on o.CustomerID = c.Id
+--4.Hiển thị chi tiết đơn hàng kèm tên sản phẩm, số lượng, giá.
+Select d.OrderId,d.Id, p.ProductName, d.Quantity, d.Price from OrderDetails d 
+inner join Products p 
+on d.ProductId = p.Id
+Where d.OrderId = 2
+
+--5.Tính tổng tiền mỗi khách hàng đã chi tiêu.
+Select CustomerId, c.Name, SUM(TotalAmount) from ORDERS o
+inner join Customers c 
+on o.CustomerId = c.Id
+group by o.CustomerId,  c.Name
+-- 6.Tính tổng số lượng sản phẩm đã bán ra.
+Select p.Id, p.ProductName, Sum(Quantity) from OrderDetails o 
+inner join Products p
+on o.ProductId = p.Id
+Group By p.Id, p.ProductName
+-- 7.Lấy khách hàng chi tiêu nhiều nhất.
+Select TOP 1 CustomerId, c.Name, SUM(TotalAmount) from ORDERS o
+inner join Customers c 
+on o.CustomerId = c.Id
+group by o.CustomerId,  c.Name
+Order by SUM(TotalAmount) DESC
+
+
+
+
+
+
+
+
 
